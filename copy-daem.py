@@ -2,16 +2,14 @@
 """
 example for daemon launch in the system
 1) apt-get install python-daemon
-2) touch file /var/run/copy-daemon.pid and edit it any random number and
- save it
-3) launch this script ./copy-daem.py start/stop in console and close
- console without exit from session
+2) touch file /var/run/copy-daemon.pid and edit it any random number and save it
+3) launch this script ./copy-daem.py start/stop in console and close console without exit from session
 """
 
-import os, time
+import os, time, subprocess
 from daemon import runner
-from ftplib import FTP
-import redis
+# from ftplib import FTP
+# import redis
 
 # FTP_HOST = "46.182.26.90"
 # FTP_USER_INPUT = "input"
@@ -73,9 +71,14 @@ import redis
 #                 xml_handle.close()
 #                 db.hset(dbfile, "xml", "ok")
 
+def move():
+    subprocess.Popen('mc', shell = True)
+    pass
 
-class App():
+def delete():
+    subprocess.Popen('exit', shell = False)
 
+class Daemon():
     def __init__(self):
         self.stdin_path = '/dev/null'
         self.stdout_path = '/var/log/copy-daemon.log'
@@ -85,11 +88,16 @@ class App():
 
     def run(self):
         while True:
-            upload()
-            download()
-            time.sleep(20)
+            move()
+            time.sleep(5)
+            delete()
+            time.sleep(5)
 
 if __name__ == "__main__":
-    app = App()
-    daemon_runner = runner.DaemonRunner(app)
-    daemon_runner.do_action()
+    daemon = Daemon()
+    daemon.run()
+    # daemon_runner = runner.DaemonRunner(daemon)
+    # daemon_runner.do_action()
+    # subprocess.Popen('/etc/init.d/gunicorn restart', shell = True)
+    # subprocess.Popen('/etc/init.d/celeryd restart', shell = True)
+    # subprocess.Popen('/etc/init.d/nginx restart', shell = True)
