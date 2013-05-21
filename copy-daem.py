@@ -6,9 +6,14 @@ example for daemon launch in the system
 3) launch this script ./copy-daem.py start/stop in console and close console without exit from session
 """
 
-import os, time, subprocess
+"""
+    sudo apt-get install python-git
+"""
+
+import os, time, subprocess, sys, atexit
 from daemon import runner
-# from ftplib import FTP
+from ftplib import FTP
+import git
 # import redis
 
 # FTP_HOST = "46.182.26.90"
@@ -71,33 +76,64 @@ from daemon import runner
 #                 xml_handle.close()
 #                 db.hset(dbfile, "xml", "ok")
 
-def move():
-    subprocess.Popen('mc', shell = True)
-    pass
-
-def delete():
-    subprocess.Popen('exit', shell = False)
-
 class Daemon():
     def __init__(self):
-        self.stdin_path = '/dev/null'
-        self.stdout_path = '/var/log/copy-daemon.log'
-        self.stderr_path = '/var/log/copy-daemon.log'
-        self.pidfile_path =  '/var/run/copy-daemon.pid'
+        self.stdin = '/dev/null'
+        self.stdout = '/var/log/copy-daemon.log'
+        self.stderr = '/var/log/copy-daemon.log'
+        self.pidfile = '/var/run/copy-daemon.pid'
         self.pidfile_timeout = 5
 
+        self.git_pull = '/var/www/rep/press/'
+        self.main_dir = '/var/www/press/'
+
+    def git_init():
+        subprocess.Popen("git pull", stdout = subprocess.PIPE, shell = True)
+        os.chdir(self.git_pull)
+        git.Git().init()
+        git.Git().clone('git://ruslux/press')
+
+    def pid():
+        # перенаправление стандартного ввода/вывода
+        sys.stdout.flush()
+        sys.stderr.flush()
+        si = file(self.stdin, 'r')
+        so = file(self.stdout, 'a+')
+        se = file(self.stderr, 'a+', 0)
+        os.dup2(si.fileno(), sys.stdin.fileno())
+        os.dup2(so.fileno(), sys.stdout.fileno())
+        os.dup2(se.fileno(), sys.stderr.fileno())
+    
+        # записываем pidfile
+        atexit.register(self.delpid)
+        pid = str(os.getpid())
+        file(self.pidfile, 'w+').write("%s\n" % pid)
+
+    def delpid():
+        os.remove(self.pidfile)
+
+    def copy():
+        # to be continued...
+        os.chdir(self.git_pull);
+        try:
+            git.Git().pull("origin test");
+        except Exception, e:
+            sys.stderr.write("git pull failed: %d (%s)\n" % (e.errno, e.strerror))
+
     def run(self):
+        self.pid()
+        self.git_init()
         while True:
-            move()
-            time.sleep(5)
-            delete()
-            time.sleep(5)
+            self.copy()
+            p = subprocess.Popen('/etc/init.d/gunicorn restart', shell = True)
+            p.wait()
+            p = subprocess.Popen('/etc/init.d/celeryd restart', shell = True)
+            p.wait()
+            p = subprocess.Popen('/etc/init.d/nginx restart', shell = True)
+            p.wait()
+            time.sleep(self.pidfile_timeout)
 
 if __name__ == "__main__":
     daemon = Daemon()
-    daemon.run()
-    # daemon_runner = runner.DaemonRunner(daemon)
-    # daemon_runner.do_action()
-    # subprocess.Popen('/etc/init.d/gunicorn restart', shell = True)
-    # subprocess.Popen('/etc/init.d/celeryd restart', shell = True)
-    # subprocess.Popen('/etc/init.d/nginx restart', shell = True)
+    daemon_runner = runner.DaemonRunner(daemon)
+    daemon_runner.do_action()
