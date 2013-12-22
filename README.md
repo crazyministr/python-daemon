@@ -1,2 +1,2 @@
-python-daemon_for_git
-=====================
+python-daemon
+=============
